@@ -1,0 +1,25 @@
+{{- if .Values.mutatingWebhook.enabled -}}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "kubenab.fullname" . }}-mutate
+  labels:
+{{ include "kubenab.labels" . | indent 4 }}
+  annotations:
+    cert-manager.io/inject-ca-from: "{{ .Release.Namespace }}/{{ include "kubenab.servingCertificate" . }}"
+webhooks:
+- name: kubenab-mutate.k8s.io
+  rules:
+  - operations: [ "CREATE", "UPDATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Ignore
+  clientConfig:
+    service:
+      name: {{ include "kubenab.fullname" . }}
+      namespace: {{ .Release.Namespace }}
+      path: "/mutate"
+  admissionReviewVersions: ["v1"]
+  sideEffects: None      
+{{- end -}}

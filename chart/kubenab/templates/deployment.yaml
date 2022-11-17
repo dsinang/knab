@@ -1,0 +1,85 @@
+{{- if .Values.docker.registryUrl }}
+{{- if .Capabilities.APIVersions.Has "apps/v1" }}
+apiVersion: apps/v1
+{{- else }}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Deployment
+metadata:
+  name: {{ include "kubenab.fullname" . }}
+  labels:
+{{ include "kubenab.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "kubenab.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+{{ include "kubenab.labels" . | indent 8 }}
+    spec:
+      {{- if .Values.priorityClass.enabled }}
+      priorityClassName: {{ .Values.priorityClass.name | default "system-cluster-critical" }}
+      {{- end }}
+      serviceAccountName: {{ include "kubenab.fullname" . }}
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecrets }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: DOCKER_REGISTRY_URL
+              value: {{ .Values.docker.registryUrl }}
+            - name: REGISTRY_SECRET_NAME
+              value: {{ .Values.docker.registrySecret }}
+            - name: WHITELIST_NAMESPACES
+              value: {{ .Values.whitelistNamespaces }}
+            - name: WHITELIST_REGISTRIES
+              value: {{ .Values.whitelistRegistries }}
+            - name: REPLACE_REGISTRY_URL
+              value: {{ .Values.docker.replaceRegistryUrl }}
+            - name: PORT
+              value: {{ .Values.image.port }}
+          ports:
+            - name: https
+              containerPort: {{ .Values.image.port }}
+              protocol: TCP
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/admission-controller/tls
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.securityContext.enabled }}
+          securityContext:
+            {{- omit .Values.securityContext "enabled" | toYaml | nindent 12 }}
+        {{- end }}
+        {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- omit .Values.livenessProbe "enabled" | toYaml | nindent 12 }}
+        {{- end }}
+        {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- omit .Values.readinessProbe "enabled" | toYaml | nindent 12 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.tls.secretName | default (printf "%s" ( include "kubenab.servingCertificate" .)) }}
+{{- end }}

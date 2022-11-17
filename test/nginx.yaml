@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  namespace: nginx
+  labels:
+    test: kubenab
+spec:
+  selector:
+    matchLabels:
+      test: kubenab
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        test: kubenab
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        imagePullPolicy: IfNotPresent
+
